@@ -6,8 +6,8 @@
             row: 'td', //Se usa th o td en el thead?
             empty : 'empty', //Clase para cuando la clase estÃ© vacia y no desperdicie espacio, ni haga calculos raros.
             sortable: true, //True o False para ordenar con js las columnas.
-            sortableFields : 'all', //variable temporal sin asignar todavia.
-            height: 500 //Alto de la tabla luego de contar con el vertical scroll
+            height: 500, //Alto de la tabla luego de contar con el vertical scroll
+            maxWidth: 0
         };
 
         var settings = {};
@@ -32,7 +32,7 @@
                     var ieFix          = ($.browser.msie) ? 0 :0 
                     var newTableWidth  = tableWidth - (scrollBarWidth + ieFix);
                     
-                    
+                    var fixedTable = $('<div class="fixedTable"></div>');
                     //Div para envolver la tabla principal, la del body...
                     var wrapper = $('<div class="fixedBody"></div>');                   
                     
@@ -41,7 +41,9 @@
                     wrapper.css({
                         'height': settings.height,
                         'overflow' : 'auto',
-                        'width'  : tableWidth 
+                        'width'  : tableWidth,
+                        'z-index' : 9,
+                        'position' : 'relative'
                     });
                     
                     //...la tabla queda con el ancho original menos 10 pixeles para compensar el scrollBar
@@ -49,6 +51,16 @@
                         'width' : newTableWidth,
                         'table-layout' : 'fixed'
                     });
+
+
+                    element.wrap(fixedTable);
+
+                    if(settings.maxWidth){
+                      element.closest('.fixedTable').css({
+                        'width' : settings.maxWidth,
+                        'overflow' : 'auto'
+                      });
+                    }
                     //Se envuelve
                     element.wrap(wrapper);   
                     
@@ -68,8 +80,7 @@
                             'width':newTableWidth,
                             'table-layout' : 'fixed'
                          });
-                        
-         
+                         
                     }
                     
                     
@@ -80,17 +91,16 @@
                         //Base del duplicado del header y footer,  vacio pero listo para los datos.
                         //var fixedHeader = $('<style>td{border: 1px solid black !important}</style><div class="fixedHeader"><table></table></div>');
                         var fixedHeader = $('<div class="fixedHeader"><table></table></div>');
+                        
                         element.parent().before(fixedHeader);
-                                                
+                                           
+                        fixedHeader.find('table').attr('class', tableClass).css({
+                            'width':newTableWidth
+                        });     
                         //Ahora a duplicar los datos internos del thead!!!!
                         element.find('thead tr').find(settings.row).each(function (i) {
                             //Creando cada celda del nuevo thead...
                             var width = helpers._getColWidth($(this));
-                            
-                            //Agregando estilos a la celda, el ancho de la misma celda en el thead original
-                            $(this).css({
-                                'width': width + 'px'
-                            });
                             
                             //Cuando se reacomode debido a los cambios de ancho y el scrollbar, la tabla
                             //original va a quedar hecha un desastre, entonces se reacomoda con los mismos anchos
@@ -101,15 +111,7 @@
                             
                         });
 
-                         var head = element.find('thead');
-
-                         fixedHeader.find('table').append(head);
-                        
-                         fixedHeader.find('table').attr('class', tableClass).css({
-                            'width':newTableWidth
-                         });
-
-                                        element.find('tbody tr:first td').each(function (i) {                           
+                       element.find('tbody tr:first td').each(function (i) {                           
 
                             var width = helpers._getColWidth($(this));  
                             
@@ -123,9 +125,44 @@
                         var foot = element.find('tfoot');
 
                       
+                      var head = element.find('thead');
 
-                        fixedFooter.find('table').append( '<tbody><tr>' + dummy.html() + '</tr></tbody>').append(foot);
+                      fixedHeader.find('table').append(head).append( '<tbody><tr>' + dummy.html() + '</tr></tbody>');
+
+                      fixedFooter.find('table').append( '<tbody><tr>' + dummy.html() + '</tr></tbody>').append(foot);
+                      
+                      fixedFooter.css({
+                        'z-index':'1',
+                        'position' : 'relative'
+                      });
+
+                      fixedHeader.css({
+                        'z-index':'1',
+                        'position' : 'relative'
+                      });
+                      // fixedFooter.find('table').append(foot);
                  
+                        fixedFooter.find('table tbody tr td').each(function(i){
+                          $(this).html('');                          
+                          $(this).css('borderColor' , 'transparent');
+                        });
+
+                        fixedHeader.find('table tbody tr td').each(function(i){
+                          $(this).html('');                          
+                          $(this).css('borderColor' , 'transparent');
+                        });
+
+                        var height = fixedFooter.find('tr').outerHeight();
+
+                        fixedFooter.css({
+                          'margin-top' : '-' + height + 'px'
+                        });
+
+                        fixedHeader.css({
+                          'margin-bottom' : '-' + height + 'px'
+                        });
+
+
                         element.find("thead").hide();
                         element.find('tfoot').hide();
                     }
@@ -137,6 +174,43 @@
 
                 });
             },
+
+            destroy : function(){
+              return this.each(function () {
+
+                    var element = $(this);
+
+                    if (element.parent().is('.fixedHeader')){
+                      element = element.parent().next().find('table');
+                    }else if (element.parent().is('.fixedFooter')){
+                      element = element.parent().prev().find('table');
+                    }               
+
+                    if ( ! element.parent().is('.fixedBody')){
+                      return false;
+                    }
+
+                    //La tabla, si es que se esta usando una tabla...
+                    
+                    var fixedHeader = element.parent().prev('.fixedHeader');
+                    var fixedFooter = element.parent().next('.fixedFooter');
+
+                    fixedHeader.find('tbody').remove();
+                    fixedFooter.find('tbody').remove();
+
+                    var thead = fixedHeader.find('thead');
+                    var tfoot = fixedFooter.find('tfoot');
+
+                    element.prepend(thead);
+                    element.append(tfoot);
+
+                    fixedFooter.remove();
+                    fixedHeader.remove();
+                    element.unwrap();
+                    element.unwrap();
+              });
+            },
+
             //Proyectada a hacer algo 
             generate: function () {
 
